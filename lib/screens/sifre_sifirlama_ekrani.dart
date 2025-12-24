@@ -82,11 +82,10 @@ class _SifreSifirlamaEkraniState extends State<SifreSifirlamaEkrani> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         title: const Text('Şifre Sıfırlama'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        // Renkler main.dart'taki temadan otomatik gelir
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -97,10 +96,10 @@ class _SifreSifirlamaEkraniState extends State<SifreSifirlamaEkrani> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // İkon
-                const Icon(
+                Icon(
                   Icons.lock_reset,
                   size: 80,
-                  color: Colors.blue,
+                  color: Theme.of(context).primaryColor,
                 ),
                 const SizedBox(height: 20),
 
@@ -153,7 +152,7 @@ class _SifreSifirlamaEkraniState extends State<SifreSifirlamaEkrani> {
                   child: ElevatedButton(
                     onPressed: _yukleniyor ? null : _sifreSifirlamaGonder,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),

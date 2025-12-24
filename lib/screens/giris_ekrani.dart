@@ -181,6 +181,14 @@ class _GirisEkraniState extends State<GirisEkrani> {
                 ),
                 const SizedBox(height: 10),
 
+                  // İkon ve Başlık
+                Icon(
+                  Icons.location_city,
+                  size: 100,
+                  color: Theme.of(context).primaryColor,
+                ),
+                // ... (text widgets)
+
                 // Giriş yap butonu
                 SizedBox(
                   width: double.infinity,
@@ -188,7 +196,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
                   child: ElevatedButton(
                     onPressed: _yukleniyor ? null : _girisYap,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
