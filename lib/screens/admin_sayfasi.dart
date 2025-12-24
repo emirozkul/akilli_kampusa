@@ -147,6 +147,16 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
                     );
                   },
                 ),
+                
+                // Acil Durum Bildir
+                ListTile(
+                  leading: const Icon(Icons.notification_important, color: Colors.red),
+                  title: const Text('Acil Durum Bildir', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                  onTap: () {
+                    Navigator.pop(context); // Menüyü kapat
+                    _acilDurumBildirDialog();
+                  },
+                ),
 
                 const Divider(),
 
@@ -524,6 +534,84 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Hata: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  // Acil Durum Bildirim Diyaloğu
+  Future<void> _acilDurumBildirDialog() async {
+    final mesajKontrol = TextEditingController(text: 'KAMPÜSTE ACİL DURUM! Lütfen güvenli bölgelere geçiniz.');
+    
+    final onay = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 30),
+            SizedBox(width: 10),
+            Text('ACİL DURUM YAYINI'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bu mesaj TÜM KULLANICILARA gönderilecektir. Emin misiniz?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: mesajKontrol,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Bildirim Mesajı',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('HERKESE GÖNDER', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (onay == true) {
+      if (mesajKontrol.text.trim().isEmpty) return;
+
+      try {
+        await _ihbarServisi.tumKullanicilaraBildirimGonder(
+          baslik: '⚠️ ACİL DURUM ⚠️', 
+          mesaj: mesajKontrol.text.trim()
+        );
+        
+        if (mounted) {
+          showDialog(
+            context: context, 
+            builder: (ctx) => AlertDialog(
+              title: const Text('Başarılı'),
+              content: const Text('Acil durum bildirimi tüm kullanıcılara gönderildi.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tamam'))
+              ],
+            )
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
           );
         }
       }

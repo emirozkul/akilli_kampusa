@@ -61,7 +61,7 @@ class Ihbar {
       'tip': tip.isim,                              // Enum'u string'e çevir
       'enlem': enlem,
       'boylam': boylam,
-      'durum': durum.isim,                          // Enum'u string'e çevir
+      'durum': durum.name,                          // Enum'un adını kaydet (Acik, Cozuldu vs.)
       'olusturanId': olusturanId,
       'tarih': Timestamp.fromDate(tarih),           // DateTime'ı Timestamp'e çevir
       'takipEdenler': takipEdenler,                 // Takipçi listesini kaydet

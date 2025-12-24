@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/ihbar.dart';
 import '../models/ihbar_durumu.dart';
+import '../models/bildirim.dart';
 
 /// Firebase Firestore ile ihbar verilerini yöneten servis sınıfı
 /// Tüm Firebase işlemleri bu sınıf üzerinden yapılır
@@ -74,6 +75,23 @@ class IhbarServisi {
       print('İhbar getirilirken hata oluştu: $hata');
       return null;
     }
+  }
+
+  /// Belirli bir ID'ye sahip ihbarı Stream olarak getirir
+  /// 
+  /// Parametreler:
+  /// - id: İhbar ID'si
+  /// 
+  /// Döner: İhbar nesnesi (Stream<Ihbar>)
+  Stream<Ihbar> tekIhbarGetirStream(String id) {
+    return _ihbarlarKoleksiyonu.doc(id).snapshots().map((doc) {
+      if (doc.exists) {
+        return Ihbar.fromFirestore(doc);
+      }
+      // Doküman silindiyse veya bulunamazsa hata fırlatılabilir veya dummy dönebilir
+      // Burada boş kontrolü yapılması gerekebilir
+      throw Exception('İhbar bulunamadı');
+    });
   }
 
   /// Mevcut bir ihbarı günceller
@@ -191,21 +209,122 @@ class IhbarServisi {
 
 
 
+  /// Kullanıcının bildirimlerini getirir (Tarihe göre sıralı)
+  Stream<List<Bildirim>> bildirimleriGetir(String userId) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('bildirimler')
+        .orderBy('tarih', descending: true)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return Bildirim.fromFirestore(doc);
+      }).toList();
+    });
+  }
+
   /// İhbar durumunu günceller (Admin Paneli için)
   /// Durum değiştiğinde (gelecekte) bildirim gönderilmesini tetikler
   Future<void> durumGuncelle(String ihbarId, IhbarDurumu yeniDurum) async {
     try {
+      // 1. İhbar durumunu güncelle
       await _ihbarlarKoleksiyonu.doc(ihbarId).update({
         'durum': yeniDurum.isim,
       });
-      
-      // TODO: Gerçek bir bildirim sistemi (Firebase Cloud Messaging) buraya entegre edilebilir.
-      // Şimdilik sadece konsola yazıyoruz.
-      print('İhbar ($ihbarId) durumu güncellendi: ${yeniDurum.isim}. Takipçilere bildirim gönderiliyor...');
+
+      // 2. İhbarı getir (Takipçileri bulmak için)
+      DocumentSnapshot ihbarDoc = await _ihbarlarKoleksiyonu.doc(ihbarId).get();
+      if (!ihbarDoc.exists) return;
+
+      Ihbar ihbar = Ihbar.fromFirestore(ihbarDoc);
+      List<String> takipciler = ihbar.takipEdenler;
+
+      // 3. Takipçilere bildirim oluştur
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      for (String userId in takipciler) {
+        DocumentReference bildirimRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('bildirimler')
+            .doc();
+
+        Bildirim yeniBildirim = Bildirim(
+          id: bildirimRef.id,
+          baslik: 'İhbar Durumu Güncellendi',
+          mesaj: '"${ihbar.baslik}" başlıklı ihbarınızın durumu "${yeniDurum.isim}" olarak güncellendi.',
+          ihbarId: ihbarId,
+          tarih: DateTime.now(),
+        );
+
+        batch.set(bildirimRef, yeniBildirim.toJson());
+      }
+
+      // Toplu yazma işlemini gerçekleştir
+      if (takipciler.isNotEmpty) {
+        await batch.commit();
+        print('${takipciler.length} kullanıcıya bildirim gönderildi.');
+      }
       
     } catch (hata) {
       print('Durum güncellenirken hata oluştu: $hata');
       rethrow;
     }
   }
+  /// Tüm kullanıcılara bildirim gönderir (Acil Durum Yayını)
+  Future<void> tumKullanicilaraBildirimGonder({required String baslik, required String mesaj}) async {
+    try {
+      // 1. Tüm kullanıcıları getir
+      QuerySnapshot usersSnapshot = await FirebaseFirestore.instance.collection('users').get();
+      
+      // 2. Batch (toplu işlem) oluştur
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+      
+      int sayac = 0;
+      
+      for (DocumentSnapshot doc in usersSnapshot.docs) {
+        String userId = doc.id;
+        
+        // Bildirim referansı
+        DocumentReference bildirimRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('bildirimler')
+            .doc();
+
+        // Bildirim nesnesi
+        Bildirim yeniBildirim = Bildirim(
+          id: bildirimRef.id,
+          baslik: baslik,
+          mesaj: mesaj,
+          ihbarId: 'ACIL_DURUM', // Özel ID
+          tarih: DateTime.now(),
+        );
+
+        // Batch'e ekle
+        batch.set(bildirimRef, yeniBildirim.toJson());
+        
+        sayac++;
+        
+        // Firestore batch limiti (her 500 işlemde bir commit gerekir)
+        if (sayac % 450 == 0) {
+          await batch.commit();
+          batch = FirebaseFirestore.instance.batch();
+        }
+      }
+
+      // Kalanları gönder
+      if (sayac > 0) {
+        await batch.commit();
+      }
+      
+      print('$sayac kullanıcıya acil durum bildirimi gönderildi.');
+      
+    } catch (hata) {
+      print('Acil durum bildirimi gönderilirken hata: $hata');
+      rethrow;
+    }
+  }
 }
+

@@ -11,6 +11,8 @@ import 'ayarlar_sayfasi.dart';
 import 'takip_ettiklerim_sayfasi.dart';
 
 import '../models/kullanici.dart'; // Kullanıcı modeli eklendi
+import '../models/bildirim.dart'; // Bildirim modeli eklendi
+import '../models/ihbar_durumu.dart'; // İhbar Durumu eklendi
 
 /// Kampüs haritasını ve ihbarları gösteren ana sayfa
 class KampusHaritaSayfasi extends StatefulWidget {
@@ -55,7 +57,61 @@ class _KampusHaritaSayfasiState extends State<KampusHaritaSayfasi> {
           _kullaniciAdi = kullanici.ad;
         });
       }
+
     });
+
+    // Bildirimleri dinle
+    _bildirimleriDinle();
+  }
+
+  /// Kullanıcının bildirimlerini dinler ve SnackBar gösterir
+  void _bildirimleriDinle() {
+    final userId = _authServisi.aktifKullaniciId;
+    if (userId != null) {
+      _ihbarServisi.bildirimleriGetir(userId).listen((bildirimler) {
+        // Son gelen bildirimi kontrol et (basit bir mantıkla)
+        // Gerçek uygulamada okundu bilgisi veya zaman damgası kontrolü yapılmalı
+        // Şimdilik sadece liste boş değilse ve son bildirim yeni ise gösterelim
+        if (bildirimler.isNotEmpty && mounted) {
+          final sonBildirim = bildirimler.first;
+          
+          // Debug için yazdıralım
+          print('Son bildirim: ${sonBildirim.mesaj}, Zaman farkı: ${DateTime.now().difference(sonBildirim.tarih).inSeconds}');
+
+          // Acil durumsa veya çok yeniyse göster
+          // Acil durumlar için süre sınırını daha esnek tut (3 dakika)
+          // Normal bildirimler için 30 saniye
+          int sinirSaniye = sonBildirim.ihbarId == 'ACIL_DURUM' ? 180 : 30;
+          
+          if (DateTime.now().difference(sonBildirim.tarih).inSeconds < sinirSaniye) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    if (sonBildirim.ihbarId == 'ACIL_DURUM')
+                      const Icon(Icons.warning, color: Colors.white)
+                    else 
+                      const Icon(Icons.notifications, color: Colors.white),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(sonBildirim.mesaj)),
+                  ],
+                ),
+                backgroundColor: sonBildirim.ihbarId == 'ACIL_DURUM' ? Colors.red : Colors.green,
+                duration: Duration(seconds: sonBildirim.ihbarId == 'ACIL_DURUM' ? 10 : 4), // Acil durum daha uzun kalsın
+                behavior: SnackBarBehavior.floating,
+                action: SnackBarAction(
+                  label: 'Tamam',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  },
+                ),
+              ),
+            );
+          }
+        }
+      });
+    }
   }
 
   // Arama işlemleri için kontrolcü ve değişken
@@ -386,7 +442,7 @@ class _KampusHaritaSayfasiState extends State<KampusHaritaSayfasi> {
           child: Container(
             // İhbar tipine göre renkli dairesel marker
             decoration: BoxDecoration(
-              color: ihbar.tip.renk,
+              color: ihbar.durum == IhbarDurumu.Cozuldu ? Colors.green : ihbar.tip.renk,
               shape: BoxShape.circle,
               border: Border.all(
                 color: Colors.white,
@@ -403,7 +459,7 @@ class _KampusHaritaSayfasiState extends State<KampusHaritaSayfasi> {
             ),
             // İkon
             child: Icon(
-              ihbar.tip.ikon,
+              ihbar.durum == IhbarDurumu.Cozuldu ? Icons.check : ihbar.tip.ikon,
               color: Colors.white,
               size: 20,
             ),

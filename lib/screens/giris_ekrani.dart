@@ -91,10 +91,11 @@ class _GirisEkraniState extends State<GirisEkrani> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo ve başlık
-                const Icon(
+                // Logo ve başlık
+                Icon(
                   Icons.location_city,
                   size: 100,
-                  color: Colors.blue,
+                  color: Theme.of(context).primaryColor,
                 ),
                 const SizedBox(height: 20),
                 const Text(
@@ -181,13 +182,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
                 ),
                 const SizedBox(height: 10),
 
-                  // İkon ve Başlık
-                Icon(
-                  Icons.location_city,
-                  size: 100,
-                  color: Theme.of(context).primaryColor,
-                ),
-                // ... (text widgets)
+                  // ... (text widgets)
 
                 // Giriş yap butonu
                 SizedBox(

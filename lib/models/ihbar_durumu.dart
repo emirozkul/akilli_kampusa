@@ -27,10 +27,13 @@ extension IhbarDurumuExtension on IhbarDurumu {
   static IhbarDurumu fromString(String durum) {
     switch (durum) {
       case 'Acik':
+      case 'Açık': // Eski/Görünen isim desteği
         return IhbarDurumu.Acik;
       case 'Inceleniyor':
+      case 'İnceleniyor':
         return IhbarDurumu.Inceleniyor;
       case 'Cozuldu':
+      case 'Çözüldü':
         return IhbarDurumu.Cozuldu;
       default:
         return IhbarDurumu.Acik;  // Varsayılan olarak Açık
