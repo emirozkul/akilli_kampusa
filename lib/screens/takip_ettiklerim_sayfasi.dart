@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../services/auth_servisi.dart';
 import '../services/ihbar_servisi.dart';
 import '../models/ihbar.dart';
+import '../models/ihbar_durumu.dart';
+import '../models/ihbar_tipi.dart';
 import '../widgets/ihbar_detay_widget.dart';
 
 /// Kullanıcının takip ettiği ihbarların listelendiği sayfa
