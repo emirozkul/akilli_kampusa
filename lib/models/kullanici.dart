@@ -12,6 +12,7 @@ class Kullanici {
   final String bolum;           // Bölüm bilgisi (örn: "Bilgisayar Mühendisliği")
   final String rol;             // Kullanıcı rolü: "Admin" veya "User"
   final DateTime kayitTarihi;   // Hesap oluşturulma tarihi
+  final List<String> bildirimTercihleri; // Bildirim almak istenen ihbar tipleri
 
   /// Constructor - Yeni kullanıcı nesnesi oluşturur
   Kullanici({
@@ -22,6 +23,7 @@ class Kullanici {
     required this.bolum,
     required this.rol,
     required this.kayitTarihi,
+    this.bildirimTercihleri = const [], // Varsayılan boş liste
   });
 
   /// Firebase Firestore'dan gelen veriyi Kullanici nesnesine çevirir
@@ -37,6 +39,7 @@ class Kullanici {
       bolum: veri['bolum'] ?? '',                         // Bölüm
       rol: veri['rol'] ?? 'User',                         // Rol (varsayılan: User)
       kayitTarihi: (veri['kayitTarihi'] as Timestamp).toDate(), // Timestamp'i DateTime'a çevir
+      bildirimTercihleri: List<String>.from(veri['bildirimTercihleri'] ?? []), // Dynamic listeyi String listeye çevir
     );
   }
 
@@ -49,6 +52,7 @@ class Kullanici {
       'bolum': bolum,
       'rol': rol,
       'kayitTarihi': Timestamp.fromDate(kayitTarihi),     // DateTime'ı Timestamp'e çevir
+      'bildirimTercihleri': bildirimTercihleri,
     };
   }
 

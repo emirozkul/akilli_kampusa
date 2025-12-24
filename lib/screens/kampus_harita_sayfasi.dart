@@ -7,6 +7,8 @@ import '../services/ihbar_servisi.dart';
 import '../services/auth_servisi.dart';
 import '../widgets/ihbar_detay_widget.dart';
 import 'ihbar_ekle_sayfasi.dart';
+import 'ayarlar_sayfasi.dart';
+import 'takip_ettiklerim_sayfasi.dart';
 
 import '../models/kullanici.dart'; // Kullanıcı modeli eklendi
 
@@ -156,6 +158,32 @@ class _KampusHaritaSayfasiState extends State<KampusHaritaSayfasi> {
                   title: const Text('Harita'),
                   onTap: () {
                     Navigator.pop(context); // Menüyü kapat
+                  },
+                ),
+                
+                // Takip Ettiklerim
+                ListTile(
+                  leading: const Icon(Icons.bookmark),
+                  title: const Text('Takip Ettiklerim'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const TakipEttiklerimSayfasi()),
+                    );
+                  },
+                ),
+
+                // Ayarlar
+                ListTile(
+                  leading: const Icon(Icons.settings),
+                  title: const Text('Ayarlar'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AyarlarSayfasi()),
+                    );
                   },
                 ),
                 // Buraya "İhbarlarım" gibi yeni menüler eklenebilir

@@ -148,6 +148,21 @@ class IhbarServisi {
           }).toList();
         });
   }
+
+  /// Kullanıcının takip ettiği ihbarları getirir
+  /// 'takipEdenler' dizisinde ilgili userId'yi arar
+  Stream<List<Ihbar>> takipEdilenleriGetir(String userId) {
+    return _ihbarlarKoleksiyonu
+        .where('takipEdenler', arrayContains: userId) // userId takipçiler listesinde var mı?
+        .orderBy('tarih', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return Ihbar.fromFirestore(doc);
+          }).toList();
+        });
+  }
+
   /// İhbarı takip et
   /// Kullanıcıyı ihbarın takipçileri listesine ekler
   Future<void> ihbarTakipEt(String ihbarId, String userId) async {
