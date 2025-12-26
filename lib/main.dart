@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart'; // Dependencies refreshed
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
@@ -42,6 +43,18 @@ class AkilliKampusUygulamasi extends StatelessWidget {
 
       // Debug banner'ını kapat (sağ üst köşedeki "DEBUG" yazısı)
       debugShowCheckedModeBanner: false,
+
+      // Yerelleştirme Ayarları
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('tr', 'TR'), // Türkçe
+        Locale('en', 'US'), // İngilizce (Yedek)
+      ],
+      locale: const Locale('tr', 'TR'), // Varsayılan dil Türkçe
 
       // Uygulama teması
       theme: ThemeData(

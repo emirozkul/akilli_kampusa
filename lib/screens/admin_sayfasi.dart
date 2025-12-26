@@ -32,18 +32,33 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
   // Kullanıcı bilgisi future
   late Future<Kullanici?> _kullaniciGetir;
 
+  // Seçili tab indeksi
+  int _seciliSayfaIndex = 0;
+
   @override
   void initState() {
     super.initState();
-    // Kullanıcı bilgisini getir
     _kullaniciGetir = _authServisi.kullaniciBilgileriniGetir(_authServisi.aktifKullaniciId!);
   }
 
   @override
   void dispose() {
-    // Controller'ı temizle (Bellek sızıntısını önlemek için)
     _aramaKontrolcusu.dispose();
     super.dispose();
+  }
+
+  // Çıkış yapma işlemi
+  Future<void> _cikisYap() async {
+    try {
+      await _authServisi.cikisYap();
+      // Navigator.pop kullanmıyoruz, çünkü main.dart stream'i sayfayı değiştirecek.
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Çıkış yapılamadı: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -51,147 +66,72 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Paneli'),
-        // Renkler temadan gelecek
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            tooltip: 'Çıkış Yap',
+            onPressed: () => _cikisYap(), 
+          ),
+        ],
       ),
-      drawer: Drawer(
-        child: FutureBuilder<Kullanici?>(
-          future: _kullaniciGetir,
-          builder: (context, snapshot) {
-            String adSoyad = 'Yükleniyor...';
-            String eposta = '';
-            String bolum = '';
-            String avatarHarf = '?';
-
-            if (snapshot.hasData && snapshot.data != null) {
-              final kullanici = snapshot.data!;
-              adSoyad = kullanici.tamIsim;
-              eposta = kullanici.eposta;
-              bolum = kullanici.bolum;
-              avatarHarf = kullanici.ad.isNotEmpty ? kullanici.ad[0].toUpperCase() : '?';
-            }
-
-            return Column(
-              children: [
-                // Profil Başlığı - Özelleştirilmiş Tasarım
-                Container(
-                  color: Theme.of(context).primaryColor,
-                  padding: const EdgeInsets.only(top: 50, bottom: 20, left: 20, right: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Avatar
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.white,
-                        child: Text(
-                          avatarHarf,
-                          style: TextStyle(
-                            fontSize: 24, 
-                            fontWeight: FontWeight.bold, 
-                            color: Theme.of(context).primaryColor
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // İsim ve E-posta (Çakışmayı önlemek için ayrı satırlar)
-                      Text(
-                        adSoyad,
-                        style: const TextStyle(
-                          fontSize: 18, 
-                          fontWeight: FontWeight.bold, 
-                          color: Colors.white
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        eposta,
-                        style: const TextStyle(
-                          fontSize: 14, 
-                          color: Colors.white70
-                        ),
-                      ),
-                      if (bolum.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          bolum,
-                          style: const TextStyle(
-                            fontSize: 12, 
-                            color: Colors.white60,
-                            fontStyle: FontStyle.italic
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                
-                // Menü Öğeleri
-                ListTile(
-                  leading: const Icon(Icons.admin_panel_settings),
-                  title: const Text('İhbar Yönetimi'),
-                  selected: true,
-                  onTap: () {
-                    Navigator.pop(context); // Menüyü kapat
-                  },
-                ),
-
-                ListTile(
-                  leading: const Icon(Icons.map),
-                  title: const Text('Haritayı Gör'),
-                  onTap: () {
-                    Navigator.pop(context); // Menüyü kapat
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const KampusHaritaSayfasi()),
-                    );
-                  },
-                ),
-                
-                // Acil Durum Bildir
-                ListTile(
-                  leading: const Icon(Icons.notification_important, color: Colors.red),
-                  title: const Text('Acil Durum Bildir', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                  onTap: () {
-                    Navigator.pop(context); // Menüyü kapat
-                    _acilDurumBildirDialog();
-                  },
-                ),
-
-                const Divider(),
-
-                // Çıkış Yap
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.red),
-                  title: const Text('Çıkış Yap', style: TextStyle(color: Colors.red)),
-                  onTap: () async {
-                    await _authServisi.cikisYap();
-                  },
-                ),
-              ],
-            );
-          },
-        ),
+      // Alt Navigasyon Çubuğu
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _seciliSayfaIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _seciliSayfaIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.admin_panel_settings_outlined),
+            selectedIcon: Icon(Icons.admin_panel_settings),
+            label: 'İhbarlar',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map),
+            label: 'Harita',
+          ),
+        ],
       ),
-      body: Column(
+      // Sayfa içeriği
+      body: IndexedStack(
+        index: _seciliSayfaIndex,
+        children: [
+          // Sayfa 0: İhbar Yönetimi Listesi
+          _buildIhbarYonetimiSayfasi(),
+          
+          // Sayfa 1: Harita Görünümü
+          // Harita sayfasını doğrudan gömmek yerine, onu ayrı bir context'te açmak daha iyi olabilir
+          // Ancak "Navbar kayboluyor" sorununu çözmek için burada göstermeyi deneyelim.
+          // KampusHaritaSayfasi bir Scaffold döndürüyor, bu yüzden iç içe Scaffold sorun olabilir.
+          // Basitlik için burada direkt widget'ı çağırıyoruz, 
+          // ama KampusHaritaSayfasi'nın Scaffold'ını kaldırmak gerekebilir.
+          // Şimdilik KampusHaritaSayfasi'nı olduğu gibi kullanacağız.
+          const KampusHaritaSayfasi(),
+        ],
+      ),
+      floatingActionButton: _seciliSayfaIndex == 0 ? FloatingActionButton(
+        onPressed: _acilDurumBildirDialog,
+        backgroundColor: Colors.red,
+        child: const Icon(Icons.notification_important, color: Colors.white),
+        tooltip: 'Acil Durum Yayını',
+      ) : null, // Harita sayfasında kendi FAB'ı olabilir
+    );
+  }
+
+  /// İhbar Yönetimi Sayfası İçeriği (Eski Body)
+  Widget _buildIhbarYonetimiSayfasi() {
+    return Column(
         children: [
           // Üst Bilgi ve Filtreler
           Container(
             padding: const EdgeInsets.all(16),
-            color: Theme.of(context).colorScheme.surfaceVariant, // Tema uyumlu arka plan
+            color: Theme.of(context).colorScheme.surfaceVariant,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'İhbar Yönetimi',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    // color: Colors.orange, // Sabit renk yerine tema varsayılanı veya primary
-                  ),
-                ),
-                const SizedBox(height: 12),
-
                 // Arama Çubuğu (Search Bar)
                 TextField(
                   controller: _aramaKontrolcusu,
@@ -206,7 +146,6 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
                     ),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                   ),
-                  // Metin değiştiğinde aramayı tetikler
                   onChanged: (yeniDeger) {
                     setState(() {
                       _aramaMetni = yeniDeger.toLowerCase();
@@ -261,7 +200,6 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
           // İhbar Listesi
           Expanded(
             child: StreamBuilder<List<Ihbar>>(
-              // Veritabanından gelen temel veri akışı (Varsa durum filtresiyle)
               stream: _secilenFiltre == null
                   ? _ihbarServisi.tumIhbarlariGetir()
                   : _ihbarServisi.durumaGoreIhbarlariGetir(_secilenFiltre!.isim),
@@ -276,11 +214,8 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
                   );
                 }
 
-                // Gelen ham liste
                 final tumIhbarlar = snapshot.data ?? [];
                 
-                // Arama filtresini uygula
-                // Hem başlıkta hem de açıklamada arama yapar
                 final filtrelenmisListe = tumIhbarlar.where((ihbar) {
                   final baslikKucuk = ihbar.baslik.toLowerCase();
                   final aciklamaKucuk = ihbar.aciklama.toLowerCase();
@@ -317,8 +252,7 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   // Liste elemanı kartı
@@ -348,9 +282,21 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
           backgroundColor: ihbar.tip.renk.withOpacity(0.2),
           child: Icon(ihbar.tip.ikon, color: ihbar.tip.renk, size: 20),
         ),
-        title: Text(
-          ihbar.baslik,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                ihbar.baslik,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            // Admin için Düzenleme Butonu
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+              tooltip: 'İhbarı Düzenle',
+              onPressed: () => _adminIhbarDuzenleDialog(ihbar),
+            ),
+          ],
         ),
         subtitle: Row(
           children: [
@@ -593,7 +539,8 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
       try {
         await _ihbarServisi.tumKullanicilaraBildirimGonder(
           baslik: '⚠️ ACİL DURUM ⚠️', 
-          mesaj: mesajKontrol.text.trim()
+          mesaj: mesajKontrol.text.trim(),
+          gonderenId: _authServisi.aktifKullaniciId, // Kendi kendine bildirim gitmesin
         );
         
         if (mounted) {
@@ -612,6 +559,81 @@ class _AdminSayfasiState extends State<AdminSayfasi> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+  // Admin İhbar Düzenleme Diyaloğu
+  Future<void> _adminIhbarDuzenleDialog(Ihbar ihbar) async {
+    final baslikKontrol = TextEditingController(text: ihbar.baslik);
+    final aciklamaKontrol = TextEditingController(text: ihbar.aciklama);
+
+    final onay = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('İhbarı Düzenle'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: baslikKontrol,
+                decoration: const InputDecoration(
+                  labelText: 'Başlık',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: aciklamaKontrol,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Açıklama',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+
+    if (onay == true) {
+      if (baslikKontrol.text.trim().isEmpty || aciklamaKontrol.text.trim().isEmpty) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Başlık ve açıklama boş olamaz')),
+          );
+        }
+        return;
+      }
+
+      try {
+        await _ihbarServisi.ihbarGuncelle(ihbar.id, {
+          'baslik': baslikKontrol.text.trim(),
+          'aciklama': aciklamaKontrol.text.trim(),
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('İhbar başarıyla güncellendi')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Hata: $e')),
           );
         }
       }

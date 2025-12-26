@@ -16,7 +16,10 @@ class Ihbar {
   final IhbarDurumu durum;        // İhbar durumu (Açık, İnceleniyor, Çözüldü)
   final String olusturanId;       // İhbarı oluşturan kullanıcının ID'si
   final DateTime tarih;           // İhbarın oluşturulma tarihi
+
   final List<String> takipEdenler; // İhbarı takip eden kullanıcıların ID listesi
+
+  final List<String> resimUrlleri; // İhbar fotoğraflarının URL listesi (Opsiyonel)
 
   /// Constructor - Yeni bir ihbar nesnesi oluşturur
   Ihbar({
@@ -29,7 +32,10 @@ class Ihbar {
     required this.durum,
     required this.olusturanId,
     required this.tarih,
+
     this.takipEdenler = const [], // Varsayılan olarak boş liste
+
+    this.resimUrlleri = const [], // Varsayılan olarak boş liste
   });
 
   /// Firebase Firestore'dan gelen veriyi Ihbar nesnesine çevirir
@@ -48,9 +54,33 @@ class Ihbar {
       durum: IhbarDurumuExtension.fromString(veri['durum'] ?? 'Acik'), // Durum
       olusturanId: veri['olusturanId'] ?? '',                       // Oluşturan kullanıcı ID
       tarih: (veri['tarih'] as Timestamp).toDate(),                 // Timestamp'i DateTime'a çevir
+
       takipEdenler: List<String>.from(veri['takipEdenler'] ?? []),  // Takipçi listesini al
+      resimUrlleri: _resimUrlleriniAyikla(veri),                    // Resim URL listesini al
     );
   }
+
+  /// Firestore verisinden resim URL'lerini güvenli şekilde çeker
+  /// Hem yeni 'resimUrlleri' listesini hem de eski 'resimUrl' string alanını kontrol eder
+  static List<String> _resimUrlleriniAyikla(Map<String, dynamic> veri) {
+    List<String> urller = [];
+    
+    // Yeni liste formatı
+    if (veri['resimUrlleri'] != null) {
+      urller.addAll(List<String>.from(veri['resimUrlleri']));
+    }
+    
+    // Eski tekil format (Geriye dönük uyumluluk)
+    if (veri['resimUrl'] != null && veri['resimUrl'] is String && (veri['resimUrl'] as String).isNotEmpty) {
+      // Eğer bu URL zaten listede yoksa ekle
+      if (!urller.contains(veri['resimUrl'])) {
+        urller.add(veri['resimUrl']);
+      }
+    }
+    
+    return urller;
+  }
+
 
   /// Ihbar nesnesini Firebase'e kaydedilecek formata çevirir
   /// Map<String, dynamic> formatında döndürür
@@ -64,7 +94,10 @@ class Ihbar {
       'durum': durum.name,                          // Enum'un adını kaydet (Acik, Cozuldu vs.)
       'olusturanId': olusturanId,
       'tarih': Timestamp.fromDate(tarih),           // DateTime'ı Timestamp'e çevir
+
       'takipEdenler': takipEdenler,                 // Takipçi listesini kaydet
+
+      'resimUrlleri': resimUrlleri,                 // Resim URL listesini kaydet
     };
   }
 
@@ -80,7 +113,9 @@ class Ihbar {
     IhbarDurumu? durum,
     String? olusturanId,
     DateTime? tarih,
+
     List<String>? takipEdenler,
+    List<String>? resimUrlleri,
   }) {
     return Ihbar(
       id: id ?? this.id,
@@ -93,6 +128,8 @@ class Ihbar {
       olusturanId: olusturanId ?? this.olusturanId,
       tarih: tarih ?? this.tarih,
       takipEdenler: takipEdenler ?? this.takipEdenler,
+
+      resimUrlleri: resimUrlleri ?? this.resimUrlleri,
     );
   }
 }

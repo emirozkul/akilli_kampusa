@@ -6,6 +6,7 @@ import '../models/ihbar_durumu.dart';
 
 import '../services/ihbar_servisi.dart';
 import '../services/auth_servisi.dart';
+import '../screens/ihbar_detay_sayfasi.dart';
 
 /// İhbar detaylarını gösteren widget
 /// Bottom sheet içinde kullanılır
@@ -13,11 +14,14 @@ class IhbarDetayWidget extends StatefulWidget {
   
   // Gösterilecek ihbar
   final Ihbar ihbar;
+  // Tam ekran modunda mı açıldı? (Bottom sheet değilse butonu gizle)
+  final bool fullscreen;
 
   /// Constructor - İhbar nesnesini alır
   const IhbarDetayWidget({
     super.key,
     required this.ihbar,
+    this.fullscreen = false,
   });
 
   @override
@@ -31,22 +35,47 @@ class _IhbarDetayWidgetState extends State<IhbarDetayWidget> {
   
   // Takip durumu
   bool _takipEdiyor = false;
+  bool _isAdmin = false;
   String? _aktifKullaniciId;
   bool _yukleniyor = false;
+  
+  // Düzenleme modu state'i
+  bool _duzenlemeModu = false;
+  late TextEditingController _baslikController;
+  late TextEditingController _aciklamaController;
+  
+  // Resim Gösterimi
+  int _aktifResimIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _takipDurumunuKontrolEt();
+    _baslikController = TextEditingController(text: widget.ihbar.baslik);
+    _aciklamaController = TextEditingController(text: widget.ihbar.aciklama);
+    _baslangicKontrolleri();
   }
 
-  // Başlangıçta takip durumunu kontrol et
-  void _takipDurumunuKontrolEt() {
+  @override
+  void dispose() {
+    _baslikController.dispose();
+    _aciklamaController.dispose();
+    super.dispose();
+  }
+
+  // Başlangıçta takip durumu ve yetkiyi kontrol et
+  Future<void> _baslangicKontrolleri() async {
     _aktifKullaniciId = _authServisi.aktifKullaniciId;
-    if (_aktifKullaniciId != null) {
-      // Ihbar modelindeki takipçi listesinde var mı?
+    
+    // Admin kontrolü
+    String? rol = await _authServisi.kullaniciRolunuGetir();
+    
+    if (mounted) {
       setState(() {
-        _takipEdiyor = widget.ihbar.takipEdenler.contains(_aktifKullaniciId);
+        // Rol kontrolünü büyük/küçük harf duyarsız yap
+        _isAdmin = rol?.toLowerCase() == 'admin';
+        if (_aktifKullaniciId != null) {
+           _takipEdiyor = widget.ihbar.takipEdenler.contains(_aktifKullaniciId);
+        }
       });
     }
   }
@@ -88,6 +117,41 @@ class _IhbarDetayWidgetState extends State<IhbarDetayWidget> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Hata: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _yukleniyor = false;
+        });
+      }
+    }
+  }
+
+  // Değişiklikleri Kaydet
+  Future<void> _degisiklikleriKaydet() async {
+    setState(() {
+      _yukleniyor = true;
+    });
+
+    try {
+      await _ihbarServisi.ihbarGuncelle(widget.ihbar.id, {
+        'baslik': _baslikController.text.trim(),
+        'aciklama': _aciklamaController.text.trim(),
+      });
+
+      if (mounted) {
+        setState(() {
+          _duzenlemeModu = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('İhbar güncellendi')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Güncelleme hatası: $e')),
         );
       }
     } finally {
@@ -144,54 +208,166 @@ class _IhbarDetayWidgetState extends State<IhbarDetayWidget> {
               ),
               const SizedBox(height: 20),
     
-              // Üst Satır: İhbar Tipi ve Takip Butonu
+              // Üst Satır: İhbar Tipi ve Aksiyonlar
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _tipRozetiniOlustur(guncelIhbar),
                   
-                  // Takip Butonu
-                  IconButton(
-                    onPressed: _yukleniyor ? null : _takipIslemi,
-                    icon: _yukleniyor 
-                      ? const SizedBox(
-                          width: 20, 
-                          height: 20, 
-                          child: CircularProgressIndicator(strokeWidth: 2)
-                        )
-                      : Icon(
-                          _takipEdiyor ? Icons.favorite : Icons.favorite_border,
-                          color: _takipEdiyor ? Colors.red : Colors.grey,
-                          size: 28,
+                  // Sağ Taraf Butonları (Admin Düzenle + Takip)
+                  Row(
+                    children: [
+                      // Admin için Düzenleme Modu Butonu
+                      if (_isAdmin)
+                        Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: _duzenlemeModu ? Colors.blue.shade100 : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              _duzenlemeModu ? Icons.save : Icons.edit,
+                              color: Colors.blue,
+                            ),
+                            tooltip: _duzenlemeModu ? 'Kaydet' : 'Düzenle',
+                            onPressed: _duzenlemeModu ? _degisiklikleriKaydet : () {
+                              setState(() {
+                                _duzenlemeModu = true;
+                                _baslikController.text = guncelIhbar.baslik;
+                                _aciklamaController.text = guncelIhbar.aciklama;
+                              });
+                            },
+                          ),
                         ),
-                    tooltip: _takipEdiyor ? 'Takibi Bırak' : 'Takip Et',
+
+                      // Takip Butonu
+                      IconButton(
+                        onPressed: _yukleniyor ? null : _takipIslemi,
+                        icon: _yukleniyor 
+                          ? const SizedBox(
+                              width: 20, 
+                              height: 20, 
+                              child: CircularProgressIndicator(strokeWidth: 2)
+                            )
+                          : Icon(
+                              _takipEdiyor ? Icons.favorite : Icons.favorite_border,
+                              color: _takipEdiyor ? Colors.red : Colors.grey,
+                              size: 28,
+                            ),
+                        tooltip: _takipEdiyor ? 'Takibi Bırak' : 'Takip Et',
+                      ),
+                    ],
                   ),
                 ],
               ),
               const SizedBox(height: 15),
-    
-              // Başlık
-              Text(
-                guncelIhbar.baslik,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+
+              const SizedBox(height: 15),
+
+              // İhbar Resimleri (Carousel)
+              if (guncelIhbar.resimUrlleri.isNotEmpty)
+                Column(
+                  children: [
+                    SizedBox(
+                      height: 250,
+                      child: PageView.builder(
+                        itemCount: guncelIhbar.resimUrlleri.length,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _aktifResimIndex = index;
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          return GestureDetector(
+                            onTap: () {
+                              _galeriyiAc(context, guncelIhbar.resimUrlleri, index);
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                image: DecorationImage(
+                                  image: NetworkImage(guncelIhbar.resimUrlleri[index]),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    
+                    // Nokta Göstergeleri (Sadece birden fazla resim varsa)
+                    if (guncelIhbar.resimUrlleri.length > 1)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(guncelIhbar.resimUrlleri.length, (index) {
+                            return Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _aktifResimIndex == index 
+                                    ? Colors.blue 
+                                    : Colors.grey[300],
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
+    
+              // Başlık Alanı (Düzenleme Moduna Göre Değişir)
+              if (_duzenlemeModu)
+                TextFormField(
+                  controller: _baslikController,
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  decoration: const InputDecoration(
+                    labelText: 'İhbar Başlığı',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                )
+              else
+                Text(
+                  guncelIhbar.baslik,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              
               const SizedBox(height: 10),
     
               // Durum
               _durumuGoster(guncelIhbar),
               const SizedBox(height: 15),
     
-              // Açıklama
-              Text(
-                guncelIhbar.aciklama,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[700],
+              // Açıklama Alanı (Düzenleme Moduna Göre Değişir)
+              if (_duzenlemeModu)
+                TextFormField(
+                  controller: _aciklamaController,
+                  maxLines: 4,
+                  style: TextStyle(fontSize: 16, color: Colors.grey[800]),
+                  decoration: const InputDecoration(
+                    labelText: 'Detaylı Açıklama',
+                    border: OutlineInputBorder(),
+                  ),
+                )
+              else
+                Text(
+                  guncelIhbar.aciklama,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.grey[700],
+                  ),
                 ),
-              ),
+                
               const SizedBox(height: 20),
     
               // Tarih bilgisi
@@ -200,6 +376,36 @@ class _IhbarDetayWidgetState extends State<IhbarDetayWidget> {
     
               // Konum bilgisi
               _konumBilgisiniGoster(guncelIhbar),
+              
+              // Eğer tam ekran değilse (Bottom Sheet ise) Detay Butonunu göster
+              if (!widget.fullscreen) ...[
+                const SizedBox(height: 15),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // Detay sayfasına git
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => IhbarDetaySayfasi(ihbar: guncelIhbar),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.arrow_forward, size: 18),
+                      label: const Text('Detayı Gör'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               
               const SizedBox(height: 10),
               // Takipçilere özel bilgi notu
@@ -346,6 +552,49 @@ class _IhbarDetayWidgetState extends State<IhbarDetayWidget> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Tam Ekran Galeri
+  void _galeriyiAc(BuildContext context, List<String> resimler, int baslangicIndex) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Resimler (PageView)
+             SizedBox(
+              width: double.infinity,
+              height: double.infinity,
+              child: PageView.builder(
+                controller: PageController(initialPage: baslangicIndex),
+                itemCount: resimler.length,
+                itemBuilder: (context, index) {
+                  return InteractiveViewer( // Zoom için
+                    child: Image.network(
+                      resimler[index],
+                      fit: BoxFit.contain,
+                    ),
+                  );
+                },
+              ),
+            ),
+            
+            // Kapat Butonu
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 } // Class sonu

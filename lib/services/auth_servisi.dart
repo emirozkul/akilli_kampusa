@@ -177,4 +177,20 @@ class AuthServisi {
     // Rol bilgisini döndür
     return kullanici?.rol;
   }
+  /// Kullanıcı bilgilerini günceller
+  /// 
+  /// Parametreler:
+  /// - userId: Güncellenecek kullanıcı ID
+  /// - veri: Güncellenecek veriler (Map)
+  Future<void> kullaniciBilgileriniGuncelle(String userId, Map<String, dynamic> veri) async {
+    try {
+      await _firestore
+          .collection(_usersKoleksiyon)
+          .doc(userId)
+          .update(veri);
+    } catch (e) {
+      print('Kullanıcı bilgileri güncellenirken hata: $e');
+      throw 'Bilgiler güncellenirken bir hata oluştu: $e';
+    }
+  }
 }

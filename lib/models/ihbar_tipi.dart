@@ -71,12 +71,16 @@ extension IhbarTipiExtension on IhbarTipi {
       case 'Acil':
         return IhbarTipi.Acil;
       case 'Ariza':
+      case 'Arıza': // Türkçe karakter desteği
         return IhbarTipi.Ariza;
       case 'Kayip':
+      case 'Kayıp': // Türkçe karakter desteği
         return IhbarTipi.Kayip;
       case 'Oneri':
+      case 'Öneri': // Türkçe karakter desteği
         return IhbarTipi.Oneri;
       case 'Diger':
+      case 'Diğer': // Türkçe karakter desteği
       default:
         return IhbarTipi.Diger;
     }

@@ -12,6 +12,8 @@ class Kullanici {
   final String bolum;           // Bölüm bilgisi (örn: "Bilgisayar Mühendisliği")
   final String rol;             // Kullanıcı rolü: "Admin" veya "User"
   final DateTime kayitTarihi;   // Hesap oluşturulma tarihi
+  final int yas;                // Yaş (Opsiyonel olabilir ama istendi)
+  final String? profilResmiUrl; // Profil fotoğrafı URL'i
   final List<String> bildirimTercihleri; // Bildirim almak istenen ihbar tipleri
 
   /// Constructor - Yeni kullanıcı nesnesi oluşturur
@@ -23,6 +25,8 @@ class Kullanici {
     required this.bolum,
     required this.rol,
     required this.kayitTarihi,
+    this.yas = 0,               // Varsayılan yaş
+    this.profilResmiUrl,
     this.bildirimTercihleri = const [], // Varsayılan boş liste
   });
 
@@ -39,6 +43,8 @@ class Kullanici {
       bolum: veri['bolum'] ?? '',                         // Bölüm
       rol: veri['rol'] ?? 'User',                         // Rol (varsayılan: User)
       kayitTarihi: (veri['kayitTarihi'] as Timestamp).toDate(), // Timestamp'i DateTime'a çevir
+      yas: veri['yas'] ?? 0,                              // Yaş
+      profilResmiUrl: veri['profilResmiUrl'],             // Profil Resmi
       bildirimTercihleri: List<String>.from(veri['bildirimTercihleri'] ?? []), // Dynamic listeyi String listeye çevir
     );
   }
@@ -52,6 +58,8 @@ class Kullanici {
       'bolum': bolum,
       'rol': rol,
       'kayitTarihi': Timestamp.fromDate(kayitTarihi),     // DateTime'ı Timestamp'e çevir
+      'yas': yas,
+      'profilResmiUrl': profilResmiUrl,
       'bildirimTercihleri': bildirimTercihleri,
     };
   }

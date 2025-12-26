@@ -6,6 +6,8 @@ import '../services/ihbar_servisi.dart';
 import '../services/auth_servisi.dart'; // Kullanıcı ID'si için
 import '../models/ihbar_tipi.dart';
 import '../models/ihbar_durumu.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 /// Kullanıcının yeni bir ihbar oluşturmasını sağlayan sayfa
 class IhbarEkleSayfasi extends StatefulWidget {
@@ -36,6 +38,54 @@ class _IhbarEkleSayfasiState extends State<IhbarEkleSayfasi> {
   // Yükleniyor mu?
   bool _yukleniyor = false;
 
+  // Resim Seçimi
+  List<File> _secilenResimler = [];
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _fotoCek() async {
+    try {
+      final XFile? secilenDosya = await _picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (secilenDosya != null) {
+        setState(() {
+          _secilenResimler.add(File(secilenDosya.path));
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fotoğraf çekilirken hata: $e')),
+      );
+    }
+  }
+
+  Future<void> _galeridenSec() async {
+     try {
+       // Çoklu seçim
+      final List<XFile> secilenDosyalar = await _picker.pickMultiImage(
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+
+      if (secilenDosyalar.isNotEmpty) {
+        setState(() {
+          _secilenResimler.addAll(secilenDosyalar.map((x) => File(x.path)));
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Galeriden resim seçilirken hata: $e')),
+      );
+    }
+  }
+
+
+
   @override
   void initState() {
     super.initState();
@@ -64,17 +114,19 @@ class _IhbarEkleSayfasiState extends State<IhbarEkleSayfasi> {
           throw 'Kullanıcı oturumu bulunamadı';
         }
 
+        List<String> resimUrlleri = [];
+        
+        // Eğer resimler seçildiyse sırayla yükle
+        if (_secilenResimler.isNotEmpty) {
+           for (var resim in _secilenResimler) {
+             String url = await IhbarServisi().resimYukle(resim);
+             resimUrlleri.add(url);
+           }
+        }
+
         // Yeni ihbar nesnesi oluştur
         final yeniIhbar = Ihbar(
-          id: '', // Firestore otomatik atayacak (serviste yönetilebilir ama modelde required)
-          // NOT: Servis create ederken ID'yi yok sayıp yeni ID ile oluşturmalı veya
-          // modelde ID'yi opsiyonel yapmalıydık. Ama şimdilik boş string verelim,
-          // serviste .add() kullanınca ID değişecek.
-          // DÜZELTME: IhbarServisi.ihbarEkle metodu parametre olarak Ihbar alıyor ve .toJson() çağırıyor.
-          // Firestore .add() metodu yeni bir ID üretir. Bizim modeldeki 'id' alanı
-          // Firestore'a kaydedilmiyor (toJson içinde yok), sadece okurken dolduruluyor.
-          // Bu yüzden buraya boş string vermek güvenli.
-          
+          id: '', 
           baslik: _baslikController.text,
           aciklama: _aciklamaController.text,
           tip: _secilenTip,
@@ -83,6 +135,7 @@ class _IhbarEkleSayfasiState extends State<IhbarEkleSayfasi> {
           durum: IhbarDurumu.Acik, // Yeni ihbar her zaman Açık başlar
           olusturanId: kId,
           tarih: DateTime.now(),
+          resimUrlleri: resimUrlleri,
         );
 
         // Servis üzerinden kaydet
@@ -130,6 +183,13 @@ class _IhbarEkleSayfasiState extends State<IhbarEkleSayfasi> {
                     // Başlık Alanı
                     TextFormField(
                       controller: _baslikController,
+                      textCapitalization: TextCapitalization.sentences,
+                      // Türkçe karakterlerin girilmesini garanti altına almak için regex
+                      // Genellikle varsayılan olarak serbesttir ama kullanıcı özellikle istedi.
+                      // Regex tüm harfleri, rakamları ve noktalama işaretlerini kapsar.
+                      // Ancak basitlik adına kısıtlama koymamak en iyisidir.
+                      // Eğer 'deny' formatında bir şey varsa onu kaldırmıştık.
+                      // Burada 'allow' kullanmak yerine kısıtlamayı kaldırıyoruz.
                       decoration: const InputDecoration(
                         labelText: 'İhbar Başlığı',
                         border: OutlineInputBorder(),
@@ -148,13 +208,14 @@ class _IhbarEkleSayfasiState extends State<IhbarEkleSayfasi> {
                     // Açıklama Alanı
                     TextFormField(
                       controller: _aciklamaController,
+                      textCapitalization: TextCapitalization.sentences,
+                      maxLines: 3,
                       decoration: const InputDecoration(
                         labelText: 'Detaylı Açıklama',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.description),
                         hintText: 'Sorunu detaylıca açıklayın...',
                       ),
-                      maxLines: 3,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Lütfen açıklama girin';
@@ -192,6 +253,118 @@ class _IhbarEkleSayfasiState extends State<IhbarEkleSayfasi> {
                         }
                       },
                     ),
+                    const SizedBox(height: 16),
+                    
+                    // Resim Ekleme Bölümü
+                    // Resim Ekleme Bölümü
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Fotoğraflar (İsteğe Bağlı)',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        // Ekle Butonu (Küçük ikon)
+                        IconButton(
+                          icon: const Icon(Icons.add_a_photo, color: Colors.blue),
+                          onPressed: () {
+                             showModalBottomSheet(
+                              context: context,
+                              builder: (context) => Container(
+                                height: 120,
+                                child: Column(
+                                  children: [
+                                    ListTile(
+                                      leading: const Icon(Icons.camera_alt),
+                                      title: const Text('Fotoğraf Çek'),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _fotoCek();
+                                      },
+                                    ),
+                                    ListTile(
+                                      leading: const Icon(Icons.image),
+                                      title: const Text('Galeriden Seç (Çoklu)'),
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        _galeridenSec();
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // Seçilen Resimlerin Listesi (Yatay)
+                    if (_secilenResimler.isNotEmpty)
+                      SizedBox(
+                        height: 100,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _secilenResimler.length,
+                          itemBuilder: (context, index) {
+                            return Stack(
+                              children: [
+                                Container(
+                                  width: 100,
+                                  height: 100,
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                    image: DecorationImage(
+                                      image: FileImage(_secilenResimler[index]),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 4,
+                                  top: 4,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _secilenResimler.removeAt(index);
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close, size: 16, color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      )
+                    else 
+                      Container(
+                        height: 80,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!, style: BorderStyle.none), // Düzeltme: BorderStyle.none kaldırılabilir veya dashed yapılabilir ama basitlik için gri kutu yeterli
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Henüz fotoğraf seçilmedi.\nYukarıdaki + ikonuna basarak ekleyebilirsiniz.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      ),
+
                     const SizedBox(height: 24),
 
                     // Konum Seçimi Başlığı
